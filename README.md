@@ -37,7 +37,7 @@ Images of each type of mold are used for testing, and the remaining ones are use
 |  coin dish  |18|
 
 
-### Data structure
+## Data structure
 -  Unzipped folders (spherical_mirror_dataset and plastic_mold_dataset) downloaded from google drives are placed under ./data folder. 
 - In each subfoloder, e.g., coin_case and test,  there are *image* and *mask* foldders containing images and corresponding mirror mask.
 
