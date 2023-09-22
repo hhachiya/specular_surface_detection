@@ -94,25 +94,15 @@ git clone https://github.com/yossi-yuto/specularflow_highlight_deepNet.git
 ## How to run
 To train the model and test it on the plastic mold dataset, execute the following command:
 ```bash 
-source pipeline_mold.sh ${GPU_NUM} ${date}
+source pipeline_mold.sh {GPU_NUM} {date}
 ```
 Also, to train the model and test it using the spherical mirror dataset, execute the following command:
 ```bash
-source pipeline_spherical.sh ${GPU_NUM} ${date}
+source pipeline_spherical.sh {GPU_NUM} {date}
 ```
-`${GPU_NUM}` is the device number of the GPU and `${date}` is the execution date argument. For instance, to run the code on September 12 using GPU 0 and the spherical mirror dataset, you can use this command:
+`{GPU_NUM}` is the device number of the GPU and `{date}` is the execution date argument. For instance, to run the code on September 12 using GPU 0 and the spherical mirror dataset, you can use this command:
 ```bash
 source pipeline_spherical.sh 0 0912
-```
-
-## Citation
-```
-@inproceedings{mva:hachiya:2023,
-  title={Combining Static Specular Flow and Highlight with Deep Features for Specular Surface Detection},
-  author={Hirotaka Hachiya and Yuto Yoshimura},
-  booktitle={Proceedings of 18th International Conference on Machine Vision Applications (MVA)},
-  year={2023}
-}
 ```
 
 
