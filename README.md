@@ -89,7 +89,7 @@ To get started with the project, follow these steps:
 ```bash
 $ git clone https://github.com/yossi-yuto/specularflow_highlight_deepNet.git
 ```
-2. Install the required packages from the requirements.txt file using pip:
+2. Install the required packages from the ```requirements.txt``` file using pip:
 ```bash
 $ pip install -r requirements.txt
 ```
