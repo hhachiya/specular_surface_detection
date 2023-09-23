@@ -108,7 +108,7 @@ where `{GPU_NUM}` is the GPU device number and `{date}` is the execution date.
 ### Example
 To conduct an experiment on the Spherical mirror dataset using GPU device 0 on September 23, execute the following command:
 ```bash
-$ source pipeline_spherical.sh 0 0912
+$ source pipeline_spherical.sh 0 0923
 ```
 
 
