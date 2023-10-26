@@ -162,7 +162,7 @@ def main():
         model = model_setting(model, rccl_freeze=True, ssf_freeze=True, sh_freeze=True, EDF_freeze=False)
 
     elif opt.mode == "pmd":
-        model = Network(rccl_zero=False, ssf_zero=True, sh_zero=True, EDF_zero=False).cuda()
+        model = Network(pmd_learn=True).cuda()
         if opt.read_weight_path:
             result_root_check = check_weight_path(result_dir, opt.read_weight_path)
         model = model_param_reading(model, os.path.join(result_root_check, "rccl.pth"), ["rccl"])

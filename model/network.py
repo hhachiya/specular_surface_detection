@@ -293,8 +293,9 @@ class EDF_module(nn.Module):
         self.edge_predict = nn.Sequential(nn.Conv2d(64+512*3, 1, 3, 1, 1))
 
     def forward(self, row_layer, high_layers):
+        
         low_feature = self.edge_extract(row_layer)
-        high_feature = F.interpolate(high_layers, size=edge_feature.size()[2:], mode='bilinear', align_corners=True)
+        high_feature = F.interpolate(high_layers, size=low_feature.size()[2:], mode='bilinear', align_corners=True)
         edge_feature = torch.cat([low_feature, high_feature], 1)        
         return self.edge_predict(edge_feature)
         
@@ -330,7 +331,8 @@ class Network(nn.Module):
         self.edf_net = EDF_module()
         
         """ refine """
-        self.refine = nn.Conv2d(4, 1, 1, 1, 0)
+        self.pmd_refine = nn.Conv2d(2, 1, 1, 1, 0)
+        self.ssfh_refine = nn.Conv2d(4, 1, 1, 1, 0)
         
         for m in self.modules():
             if isinstance(m, nn.ReLU):
@@ -351,30 +353,34 @@ class Network(nn.Module):
         ''' Sub Network '''
         # RCCL network
         if self.rccl_learn:
-            rccl_4, rccl_3, rccl_2, rccl_2, rccl_refine, _ = self.rccl_net(feat_maps)
-            return rccl_4, rccl_3, rccl_2, rccl_2, rccl_refine
+            rccl_4, rccl_3, rccl_2, rccl_1, rccl_refine, _ = self.rccl_net(feat_maps)
+            return rccl_4, rccl_3, rccl_2, rccl_1, rccl_refine
         else:
-            rccl_4, rccl_3, rccl_2, rccl_2, rccl_refine, rccl_cbam = self.rccl_net(feat_maps)
+            rccl_4, rccl_3, rccl_2, rccl_1, rccl_refine, rccl_cbam = self.rccl_net(feat_maps)
         
         # PMDNet
         if self.pmd_learn:
-            high_feature = torch.cat([rccl_cbam, self.output_zero(rccl_cbam), self.output_zero(rccl_cbam)])
+            high_feature = torch.cat([rccl_cbam, self.output_zero(rccl_cbam), self.output_zero(rccl_cbam)], 1)
             boundary = self.edf_net(layer1, high_feature)
             boundary = F.interpolate(boundary, size=x.size()[2:], mode='bilinear', align_corners=True)
-            return boundary, rccl_refine
+            final_predict = self.pmd_refine(torch.cat([torch.sigmoid(rccl_refine), torch.sigmoid(boundary)], 1))
+            if self.training:
+                return boundary, final_predict
+            # test mode
+            return torch.sigmoid(boundary), torch.sigmoid(final_predict)
         
         # SSF network
         if self.ssf_learn:
-            ssf_4, ssf_3, ssf_2, ssf_2, ssf_refine, _ = self.ssf_net(feat_maps)
-            return ssf_4, ssf_3, ssf_2, ssf_2, ssf_refine
+            ssf_4, ssf_3, ssf_2, ssf_1, ssf_refine, _ = self.ssf_net(feat_maps)
+            return ssf_4, ssf_3, ssf_2, ssf_1, ssf_refine
         else:
-            ssf_4, ssf_3, ssf_2, ssf_2, ssf_refine, ssf_cbam = self.ssf_net(feat_maps)
+            ssf_4, ssf_3, ssf_2, ssf_1, ssf_refine, ssf_cbam = self.ssf_net(feat_maps)
         # SH network
         if self.sh_learn:
-            sh_4, sh_3, sh_2, sh_2, sh_refine, _ = self.sh_net(feat_maps, sv)
-            return sh_4, sh_3, sh_2, sh_2, sh_refine
+            sh_4, sh_3, sh_2, sh_1, sh_refine, _ = self.sh_net(feat_maps, sv)
+            return sh_4, sh_3, sh_2, sh_1, sh_refine
         else:
-            sh_4, sh_3, sh_2, sh_2, sh_refine, sh_cbam = self.sh_net(feat_maps, sv)
+            sh_4, sh_3, sh_2, sh_1, sh_refine, sh_cbam = self.sh_net(feat_maps, sv)
             
         '''Edge'''
         high_feature = torch.cat([rccl_cbam, ssf_cbam, sh_cbam], 1)
@@ -388,9 +394,22 @@ class Network(nn.Module):
         boundary_map = torch.sigmoid(boundary)
         
         refine_feat = torch.cat([refine_rccl_map, refine_ssf_map, refine_sh_map, boundary_map], 1)
-        final_predict = self.refine(refine_feat)
+        final_predict = self.ssfh_refine(refine_feat)
         
-        return boundary, final_predict
+        if self.training:
+            return boundary, final_predict
+        # test mode
+        else:
+            rccl_layers = [rccl_4, rccl_3, rccl_2, rccl_1]
+            ssf_layers = [ssf_4, ssf_3, ssf_2, ssf_1]
+            sh_layers = [sh_4, sh_3, sh_2, sh_1]
+            others = [boundary, final_predict]
+            rccl_layers = [self.apply_sigmoid_if_needed(layer) for layer in rccl_layers]
+            ssf_layers = [self.apply_sigmoid_if_needed(layer) for layer in ssf_layers]
+            sh_layers = [self.apply_sigmoid_if_needed(layer) for layer in sh_layers]
+            others = [self.apply_sigmoid_if_needed(layer) for layer in others]
+    
+        return (*rccl_layers, *ssf_layers, *sh_layers, *others, refine_rccl_map, refine_ssf_map, refine_sh_map)
     
     def output_zero(self, x):
         return x * torch.zeros_like(x)
