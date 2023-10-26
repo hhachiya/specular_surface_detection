@@ -1,15 +1,18 @@
 import random
 import pdb
 import os
-import datetime
+from datetime import datetime as dt
 import statistics
 import math
 from argparse import ArgumentParser
 
 import torch
-from torch import optim
-import torch.nn as nn
+import torch.nn.functional as F
+torch.nn.functional
 import numpy as np
+
+
+import torchvision.transforms as transform
 from torch.autograd import Variable
 from torchvision import transforms
 from torchmetrics.classification import BinaryJaccardIndex
@@ -19,8 +22,9 @@ from PIL import Image
 from tqdm import tqdm
 from sklearn.metrics import mean_absolute_error
 
-from asset import crf_refine, visialize,convert_tensor_to_pil, img_transform, mask_transform, hsv_transform 
-from metrics import calc_maxFbeta
+from asset import convert_tensor_to_pil, img_transform, hsv_transform
+from metrics import get_maxFscore_and_threshold
+
 
 def image_mask_path(data_dir):
     return os.path.join(data_dir, "image"), os.path.join(data_dir, "mask")
@@ -44,12 +48,15 @@ def train(dataloader, model, loss_fn, metrics_fn, optimizer):
         target = mask.cuda()
         target_edge = edge.cuda() 
         pred = model(input)
-        loss, refine_loss = loss_fn(pred, target, target_edge)
+        loss = loss_fn(pred, target, target_edge)
         loss.backward()
+        
         train_loss += loss.detach().item()
         train_score += metrics_fn(torch.sigmoid(pred[-1]).cpu(), mask.int()).item()
-        train_refine_loss += refine_loss.detach().item()
+        train_refine_loss += loss.detach().item()
+        
         optimizer.step()
+    # Average loss
     m_loss = train_loss / len(dataloader)                              
     m_score = train_score / len(dataloader)  
     m_refine_loss = train_refine_loss / len(dataloader)
@@ -70,19 +77,24 @@ def val(dataloader, model, loss_fn, metrics_fn, output_path):
             pred = model(input)
             target = mask.cuda()
             target_edge = edge.cuda()
-            loss, refine_loss = loss_fn(pred, target, target_edge)  
-            val_loss += loss.item()   
+            
+            loss = loss_fn(pred, target, target_edge)  
+            
+            val_loss += loss.detach().item()   
             val_score += metrics_fn(torch.sigmoid(pred[-1]).cpu(), mask.int()).item()
-            val_refine_loss += refine_loss.item()
+            val_refine_loss += loss.detach().item()
+
     m_loss = val_loss / len(dataloader)
     m_score = val_score / len(dataloader)
     m_refine_loss = val_refine_loss / len(dataloader)
     print(f"val_data\n loss: {m_loss:.5f}, refine_loss:{m_refine_loss:.5f}, score: {m_score:.5f}\n")
+    # Plot graghs
     num_graghs = len(pred)
     col = 4
     row = math.ceil((num_graghs + 3) / col)
     font_size = 36
     plt.figure(tight_layout=True, figsize=(20,30))
+    
     for i in range(num_graghs):
         pred_arr = torch.sigmoid(pred[i]).cpu()
         imgobject_pred = convert_tensor_to_pil(pred_arr)
@@ -90,25 +102,29 @@ def val(dataloader, model, loss_fn, metrics_fn, output_path):
         if i < num_graghs:
             plt.imshow(imgobject_pred, cmap='gray')
         if i < 4:
-            plt.title(f"mirror map: {4 - i}", fontsize=font_size)
+            plt.title(f"RCCL: {4 - i}", fontsize=font_size)
         elif i < 8:
-            plt.title(f"SSF map: {8 - i}", fontsize=font_size)
+            plt.title(f"SSF: {8 - i}", fontsize=font_size)
         elif i < 12:
-            plt.title(f"SH map: {12 - i}", fontsize=font_size)
+            plt.title(f"SH: {12 - i}", fontsize=font_size)
         elif i == 12:
-            plt.title(f"boundary map", fontsize=font_size)
+            plt.title(f"boundary", fontsize=font_size)
         elif i == 13:
-            plt.title(f"output", fontsize=font_size)
+            plt.title(f"final", fontsize=font_size)
         else:
             pass
+        
     plt.subplot(row, col, num_graghs + 1)
     plt.imshow(rgb_img.squeeze(0).permute(1, 2, 0).contiguous())
     plt.title("image", fontsize=font_size)
     plt.subplot(row, col, num_graghs + 2)
     plt.imshow(mask.view(416, 416).cpu(), cmap='gray')
-    plt.title("GT", fontsize=font_size)
+    plt.title("mask", fontsize=font_size)
     plt.subplot(row, col, num_graghs + 3)
-    masking_img = torch.mul(pred_arr[0], image[0]).permute(1,2,0).numpy().astype(np.uint8)
+    # Making masked image.
+    pred = pred_arr.squeeze(0).permute(1,2,0).numpy()
+    rgb_img = rgb_img.squeeze(0).permute(1,2,0).numpy().astype(np.uint8)
+    masking_img = (rgb_img * pred).astype(np.uint8)
     plt.imshow(masking_img)
     plt.title("detected mirror", fontsize=font_size)
     plt.axis('off')
@@ -120,41 +136,125 @@ def val(dataloader, model, loss_fn, metrics_fn, output_path):
             }
 
 
+def load_and_process_image(img_path, img_trans=img_transform(), hsv_trans=hsv_transform()) -> tuple:
+    # Load image
+    img = Image.open(img_path)
+    # Variable
+    w, h = img.size
+    img_var = Variable(img_trans(img).unsqueeze(0)).cuda()
+    sv_var = Variable(hsv_trans(img.convert("HSV"))[1:,:,:].unsqueeze(0)).cuda()
+    
+    return img_var, sv_var
+
+
+def post_resize_and_convert(output_list, resize=None) -> list:
+    if resize is None:
+        raise ValueError("No setting resize.")
+    processed_outmaps = []
+    for i, out_map in enumerate(output_list):
+        out_map_cpu = out_map.cpu()
+        out_map_resized = F.interpolate(out_map_cpu, size=resize, mode='bilinear', align_corners=True)
+        out_map_squeezed = torch.squeeze(out_map_resized)
+        out_map_final = (out_map_squeezed * 255.).numpy().astype(np.uint8)
+        processed_outmaps.append(out_map_final)
+        
+    return processed_outmaps
+
+
 def test(test_imgs, mask_dir, model, save_dir, read_best_path):
     model.load_state_dict(torch.load(read_best_path))
+    print(f"Load paramters -> {read_best_path}")
     model.eval()
+    
     img_trans = img_transform()
     hsv_trans = hsv_transform()
-    to_pil = transforms.ToPILImage()
+
     max_Fbeta_list = []
     MAE_list = []
     with torch.no_grad():
         for img_path in tqdm(test_imgs):
+            print(f"image name: {img_path}")
+            
+            # Load image
             img = Image.open(img_path)
             filename = os.path.basename(img_path).replace(".jpg", ".png")
             mask = Image.open(os.path.join(mask_dir, filename))
             gt = np.array(mask.convert('1')).astype(int)
-            print(f"image name: {img_path}")
+            
+            # Variable
             w, h = img.size
-            img_var = Variable(img_trans(img).unsqueeze(0)).cuda()
-            sv_var = Variable(hsv_trans(img.convert("HSV"))[1:,:,:].unsqueeze(0)).cuda()
-            output_list = list(model((img_var.cuda(), sv_var.cuda())))
-            for i in range(len(output_list)): #モデルの出力のデータ型を変更
-                output_list[i] = output_list[i].data.squeeze(0).cpu()
-                output_list[i] = np.array(transforms.Resize((h,w))(to_pil(output_list[i])))
-            final = crf_refine(np.array(img.convert("RGB")), output_list[-1])
-            output_list[-1] = final
-            # outpath
+            img_var = img_trans(img).unsqueeze(0).cuda()
+            sv_var = hsv_trans(img.convert("HSV"))[1:,:,:].unsqueeze(0).cuda()
+            # Predict
+            origin_output_list = list(model((img_var.cuda(), sv_var.cuda())))
+            
+            # Post processing
+            output_list = post_resize_and_convert(origin_output_list, resize=(h, w))
+            print("Predict...")
+            
+            # Save final predict map
             output_file_path = os.path.join(save_dir, filename)
             print(f"file name: {output_file_path}")
-            Image.fromarray(final).save(output_file_path)
-            detected_img = (np.array(img.convert("RGB")) / 255.) * (final[:,:,np.newaxis] / 255.)
-            visialize(img, mask, output_list, output_dir=save_dir, output_file_name=filename, train=False, detected_image= detected_img)
-            # score
-            pred_1d = (final / 255.).flatten()
+            Image.fromarray(output_list[-1]).save(output_file_path)
+            masking = (np.array(img.convert("RGB")) / 255.) * (output_list[-1][:,:,np.newaxis] / 255.)
+
+            # Calucation scores
+            pred_1d = (output_list[-1] / 255.).flatten()
             true_1d = gt.flatten()
-            max_Fbeta_list.append(calc_maxFbeta(true_1d, pred_1d))
+            max_Fscore, thres = get_maxFscore_and_threshold(true_1d, pred_1d)
+            max_Fbeta_list.append(max_Fscore)
             MAE_list.append(mean_absolute_error(true_1d, pred_1d))
+            thres_final = np.zeros_like(output_list[-1])
+            thres_final[output_list[-1] > (thres * 255.)] = 255
+            # Gragh plot
+            all_images = output_list + [img, mask, masking, thres_final]
+            num_images = len(all_images)
+            
+            col = 4
+            row = math.ceil(num_images / col)
+            font_size = 36
+            plt.figure(tight_layout=True, figsize=(20, 30))
+            
+            for i in range(num_images):
+                plt.subplot(row, col, i + 1)
+                title = ""
+                # plot image
+                if (i == 14) or (i == 16):
+                    plt.imshow(all_images[i])
+                else:
+                    plt.imshow(all_images[i], cmap="gray")
+                # write titles
+                if i < 4:
+                    title = f"RCCL-{4 - i}"
+                elif i < 8:
+                    title = f"SSF-{8 - i}"
+                elif i < 12:
+                    title = f"SH-{12 - i}"
+                elif i == 12:
+                    title = "boundary"
+                elif i == 13:
+                    title = "final"
+                elif i == 14:
+                    title = "image"
+                elif i == 15:
+                    title = "mask"
+                elif i == 16:
+                    title = "masked image"
+                elif i == 17:
+                    title = "best F_score threshold"
+                plt.title(title, fontsize=font_size)
+                plt.axis('off')
+            
+            # Save analysis map 
+            current_time = dt.now().strftime('%m-%d-%H')
+            output_file_name = current_time + "_" + os.path.basename(img_path).replace(".jpg", "_featmap.png")
+            output_analysis_path = os.path.join(save_dir, output_file_name)
+            print(f"analysis_file: {output_analysis_path}")
+            plt.savefig(output_analysis_path)
+            plt.close()
+            
+            # pdb.set_trace()
+
         avg_f_beta = statistics.mean(max_Fbeta_list)
         avg_MAE = statistics.mean(MAE_list)
         std_fbeta = statistics.pvariance(max_Fbeta_list)
@@ -206,7 +306,7 @@ def model_setting(model, rccl_freeze=False, ssf_freeze=False, sh_freeze=False, E
                 param.requires_grad = False
             else:
                 param.requires_grad = True
-        elif ('edge_' in name):
+        elif ('edf_' in name):
             if EDF_freeze:
                 param.requires_grad = False
             else:
@@ -226,3 +326,35 @@ def model_param_reading(model, read_path, read_module=['rccl', 'ssf', 'sh']):
     selected_state_dict = {key: value for key, value in state_dict.items() if check_strings(string=key, string_list=read_module)}
     model.load_state_dict(selected_state_dict, strict=False)
     return model
+
+
+def load_rccl_ssf_sh_and_refine_params(model, rccl_param_path, ssf_param_path, sh_param_path):
+    
+    param_dict = {}
+    param_dict['rccl'] = rccl_param_path
+    param_dict['ssf'] = ssf_param_path
+    param_dict['sh'] = sh_param_path
+    
+    for compo_name, param_path in param_dict.items():
+        
+        if not os.path.exists(param_path):
+            raise FileNotFoundError(f"Found no file :{param_path}")    
+        
+        # Read parameters
+        print(f"Load {compo_name} parameter -> {param_path}")
+        state_dict = torch.load(param_path)
+        
+        # Filter parameters that are relevant for the current component
+        selected_state_dict = {key: value for key, value in state_dict.items() if check_strings(string=key, string_list=[compo_name])}
+
+        model.load_state_dict(selected_state_dict, strict=False)
+
+    return model
+
+
+# Print unfrozen_parameters.
+def print_unfrozen_params(model):
+    print("Unfrozen parameters:")
+    for name, param in model.named_parameters():
+        if param.requires_grad:
+            print(f"Layer: {name}, Parameter Size: {param.size()}")
