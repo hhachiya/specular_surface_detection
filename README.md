@@ -19,9 +19,9 @@ The following table lists the breakdown numbers of images for training and testi
 |  train  |  104  |
 |  test  |  27  |
 
-- Plastic mold dataset: in preparation  
+- Plastic mold dataset: [Google Drive (restricted to registered users only)](https://drive.google.com/file/d/1rBLSxiyrWLV4eOzFQwJCbrcHaUaghVDy/view?usp=drive_link)  
 consists of 189 pairs of an image of mirror-polished molds and their corresponding mask.
-There are 8 different types of molds, and images are shot in real factory production lines.
+There are eight different types of molds, and images are shot in real factory production lines.
 The following table lists the breakdown number of images for each type of mold.
 Images of each type of mold are used for testing, and the remaining ones are used for training, i.e., 8-fold cross-validation.  
 
