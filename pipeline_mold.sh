@@ -7,10 +7,12 @@ KINDS=$(ls .); cd ../..
 for kind in ${KINDS}; do
     write_dir=${date}/${kind}
     for iter in {1,2,3}; do
-        CUDA_VISIBLE_DEVICES=${DEVICE_NUM} python main.py -dataset_path data/plastic_mold_dataset -write_dir ${write_dir}/ex_${iter} -test_mold_type ${kind} -mode rccl --train
-        CUDA_VISIBLE_DEVICES=${DEVICE_NUM} python main.py -dataset_path data/plastic_mold_dataset -write_dir ${write_dir}/ex_${iter} -test_mold_type ${kind} -mode ssf --train 
-        CUDA_VISIBLE_DEVICES=${DEVICE_NUM} python main.py -dataset_path data/plastic_mold_dataset -write_dir ${write_dir}/ex_${iter} -test_mold_type ${kind} -mode sh --train
-        CUDA_VISIBLE_DEVICES=${DEVICE_NUM} python main.py -dataset_path data/plastic_mold_dataset -write_dir ${write_dir}/ex_${iter} -test_mold_type ${kind} -mode refine --train --eval
-        CUDA_VISIBLE_DEVICES=${DEVICE_NUM} python main.py -dataset_path data/plastic_mold_dataset -write_dir ${write_dir}/ex_${iter} -test_mold_type ${kind} -mode pmd --train --eval
+        # train
+        CUDA_VISIBLE_DEVICES=${DEVICE_NUM} python train.py -dataset_path data/plastic_mold_dataset -write_dir ${write_dir}/ex_${iter} -test_mold_type ${kind} -mode rccl 
+        CUDA_VISIBLE_DEVICES=${DEVICE_NUM} python train.py -dataset_path data/plastic_mold_dataset -write_dir ${write_dir}/ex_${iter} -test_mold_type ${kind} -mode ssf  
+        CUDA_VISIBLE_DEVICES=${DEVICE_NUM} python train.py -dataset_path data/plastic_mold_dataset -write_dir ${write_dir}/ex_${iter} -test_mold_type ${kind} -mode sh 
+        CUDA_VISIBLE_DEVICES=${DEVICE_NUM} python train.py -dataset_path data/plastic_mold_dataset -write_dir ${write_dir}/ex_${iter} -test_mold_type ${kind} -mode refine  
+        # test
+        CUDA_VISIBLE_DEVICES=${DEVICE_NUM} python test.py -dataset_path data/plastic_mold_dataset -write_dir ${write_dir}/ex_${iter} -test_mold_type ${kind} 
         done
 done

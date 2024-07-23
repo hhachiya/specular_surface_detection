@@ -4,9 +4,11 @@ DEVICE_NUM=$1
 date=$2
 write_dir=${date}
 for iter in {1,2,3}; do
-    CUDA_VISIBLE_DEVICES=${DEVICE_NUM} python main.py -dataset_path data/spherical_mirror_dataset -write_dir ${write_dir}/ex_${iter} -mode rccl --train
-    CUDA_VISIBLE_DEVICES=${DEVICE_NUM} python main.py -dataset_path data/spherical_mirror_dataset -write_dir ${write_dir}/ex_${iter} -mode ssf --train 
-    CUDA_VISIBLE_DEVICES=${DEVICE_NUM} python main.py -dataset_path data/spherical_mirror_dataset -write_dir ${write_dir}/ex_${iter} -mode sh --train
-    CUDA_VISIBLE_DEVICES=${DEVICE_NUM} python main.py -dataset_path data/spherical_mirror_dataset -write_dir ${write_dir}/ex_${iter} -mode refine  --train --eval
-    CUDA_VISIBLE_DEVICES=${DEVICE_NUM} python main.py -dataset_path data/spherical_mirror_dataset -write_dir ${write_dir}/ex_${iter} -mode pmd --train --eval
+    # train
+    CUDA_VISIBLE_DEVICES=${DEVICE_NUM} python train.py -dataset_path data/spherical_mirror_dataset -write_dir ${write_dir}/ex_${iter} -mode rccl 
+    CUDA_VISIBLE_DEVICES=${DEVICE_NUM} python train.py -dataset_path data/spherical_mirror_dataset -write_dir ${write_dir}/ex_${iter} -mode ssf  
+    CUDA_VISIBLE_DEVICES=${DEVICE_NUM} python train.py -dataset_path data/spherical_mirror_dataset -write_dir ${write_dir}/ex_${iter} -mode sh 
+    CUDA_VISIBLE_DEVICES=${DEVICE_NUM} python train.py -dataset_path data/spherical_mirror_dataset -write_dir ${write_dir}/ex_${iter} -mode refine  
+    # test
+    CUDA_VISIBLE_DEVICES=${DEVICE_NUM} python test.py -dataset_path data/spherical_mirror_dataset -write_dir ${write_dir}/ex_${iter} 
 done
