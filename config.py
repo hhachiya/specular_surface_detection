@@ -56,7 +56,7 @@ def mold_dataset(args):
     
     train_dataset = ConcatDataset(train_dataset)
     val_dataset = ConcatDataset(val_dataset)
-    print(f"train: {len(train_dataset)}, valid: {len(val_dataset)}")
+    print(f"train: {len(train_dataset)}, val: {len(val_dataset)}", "test: ", len(test_dataset))
 
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=0, pin_memory=True)
     val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=1, num_workers=0, pin_memory=True)

@@ -318,7 +318,7 @@ class Network(nn.Module):
         self.edf_net = EDF_module()
         
         """ refine """
-        self.refinement = nn.Conv2d(4, 1, 1, 1, 0)
+        self.refine = nn.Conv2d(4, 1, 1, 1, 0)
         
         for m in self.modules():
             if isinstance(m, nn.ReLU):
@@ -350,7 +350,7 @@ class Network(nn.Module):
         boundary_map = torch.sigmoid(boundary)
         
         refine_feat = torch.cat([refine_rccl_map, refine_ssf_map, refine_sh_map, boundary_map], 1)
-        final_predict = self.refinement(refine_feat)
+        final_predict = self.refine(refine_feat)
         
         rccl_predicts = [rccl_4, rccl_3, rccl_2, rccl_1]
         ssf_predicts = [ssf_4, ssf_3, ssf_2, ssf_1]
