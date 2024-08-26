@@ -7,7 +7,7 @@ This repository provides data and codes used in the paper *Specular Surface Dete
 - Python 3
 - PyTorch>=1.7.1
 
-## Dataset and Pretrained model parameters
+## Dataset 
 - Spherical mirror dataset: [Google Drive](https://drive.google.com/file/d/1ihubgbLd-IT8EQgjJ4EwJiYP-MSMA3IT/view?usp=sharing)  
 consists of 131 pairs of an image of a spherical mirror and its corresponding mask.
 Images were captured in various indoor (living and bedrooms) and outdoor (garage and garden) environments by changing the distance and angle between the camera and the spherical mirror so that the mirror reflects diverse textures.
