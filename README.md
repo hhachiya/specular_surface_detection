@@ -85,18 +85,18 @@ Images of each type of mold are used for testing, and the remaining ones are use
 
 ## Pretrained model parameters
 The pretrained model parameters are avaliable in the following Google drive.
-- Spherical mirror dataset: [Google drive](https://drive.google.com/drive/folders/1kW5vWpnXBlns2z05ET2yQq9OWP7nl3xs?usp=sharing)
+- Spherical mirror dataset: [Google drive](https://drive.google.com/drive/folders/1M_qGgfufmWed1BPYsLAaP6RZcmX92dnn?usp=sharing)
 
 This directory contrains three .pth files. These model parameters are trained on Spherical mirror train dataset, where each model initialized with different random values before training.
 <!-- この事前学習パラメータは３つの.pthファイルが保存されており、それぞれのパラメータは異なるランダムな値で初期化で学習した結果である． -->
 ```
-spherical_dataset/
+spherical_mirror_dataset/
   ├── spherical1.pth
   ├── spherical2.pth
   └── spherical3.pth
 ```
 
-- Plastic mold dataset: [Google drive](https://drive.google.com/drive/folders/1FXSzHWgEBXV9guScQI7Cpq3yB3ZWX469?usp=sharing) 
+- Plastic mold dataset: [Google drive](https://drive.google.com/drive/folders/12W3y9ad1Z4bUeBtMJkjAxk_U7nhp1-7q?usp=sharing) 
 <!-- このディレクトリは8つのzipファイルを含んでおり、さらにそのzipファイルは３つの.pthファイルを含んでいる。
 各.pthファイルのファイル名はテストに使用した金型の名前であり、ファイル名の金型を除く残り7種類のデータで学習したパラメータである。3種類はそれぞれランダムな初期値で学習したパラメータである。 -->
 This directory contains 8 ZIP files, each of which includes three .pth files. 
